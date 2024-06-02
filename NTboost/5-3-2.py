@@ -1,35 +1,33 @@
 import numpy as np
 from numpy import random
-random.seed(46)
+random.seed(256)
 
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import make_moons
 from sklearn import preprocessing  #標準化    
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.tree import DecisionTreeRegressor
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
 from scipy.optimize import minimize_scalar
 
 
-class GradientBoostingModel:
+class NewtonBoostingModel:
     def __init__(self):
         self.Tree_num = 20
         self.max_depth = 1
         self.estimatorList = []
         self.TreeList = []
-    #微分
-    def grad(self, x, y):
-        return -x / (1 + np.exp(np.multiply(x , y)))
-    #logistic loss
+    
     def logistic_loss(self, x, y):
         loss = np.log(1 + np.exp(np.multiply(-x, y)))
         return loss
-
-    def gradientBoosting(self, X, y):
+    def grad(self, x, y):
+        return (1 + np.exp(np.multiply(-x, y))) / x
+    
+    def NewtonBoosting(self, X, y):
         F = np.zeros(len(X))
         for i in range(self.Tree_num):
-            y_new = -self.grad(y, F)
+            y_new = self.grad(y, F)
             #以新target，訓練新的決策樹
             weakLearner_new = DecisionTreeRegressor(max_depth = self.max_depth)
             weakLearner_new.fit(X, y_new)
@@ -41,11 +39,11 @@ class GradientBoostingModel:
             a = step.x
             self.estimatorList.append(a)
 
-            F += a * y_pred_next
+            F += np.multiply(a, y_pred_next)
         return self.estimatorList , self.TreeList
     
     #最終學習機預測
-    def gradientBoosting_pred(self, X_test, y_test):
+    def getPred(self, X_test):
         F = np.zeros(len(X_test))
         #整合學習機
         for weakLearner, a in zip(self.TreeList, self.estimatorList):
@@ -54,6 +52,8 @@ class GradientBoostingModel:
 
         F = [1 if i > 0 else -1 for i in F]
         return F
+
+
 
 if __name__ == '__main__':
     #Load Data set and standardize
@@ -73,8 +73,8 @@ if __name__ == '__main__':
     1、 20 顆決策樹
     2、 每顆樹深度為 1 
     '''
-    model = GradientBoostingModel()
-    estimatorList, TreeList = model.gradientBoosting(X_train, y_train)
+    model = NewtonBoostingModel()
+    estimatorList, TreeList = model.NewtonBoosting(X_train, y_train)
     #各顆決策樹權重展示
     x = [i for i in range(1, 21)]
     plt.scatter(x, estimatorList)
@@ -84,10 +84,11 @@ if __name__ == '__main__':
     plt.xlabel('estimator index')
     plt.ylabel('estimator weight')
     plt.show()
-    
+
     ####################################
     #計算對測試資料之準確率
-    y_test_pred = model.gradientBoosting_pred(X_test, y_test)
+
+    y_test_pred = model.getPred(X_test)
 
     score = accuracy_score(y_test, y_test_pred)
 
